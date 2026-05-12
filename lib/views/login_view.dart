@@ -33,7 +33,15 @@ class _LoginViewState extends State<LoginView> {
       );
 
       if (success && mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        // Role-based redirect
+        final userId = authVM.getCurrentUserId();
+        final userRole = userId == null ? null : await authVM.getUserRole(userId);
+
+        if (userRole == 'admin') {
+          Navigator.pushReplacementNamed(context, '/admin');
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -284,13 +292,11 @@ class _LoginViewState extends State<LoginView> {
                       TextButton(
                         onPressed: isLoading
                             ? null
-                            : () {
-                                // TODO: Navigate to register
-                              },
+                            : () => Navigator.pushNamed(context, '/signup'),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
-                        child: const Text("Sign Up"),
+                        child: const Text('Sign Up'),
                       ),
                     ],
                   ),

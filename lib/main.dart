@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'package:provider/provider.dart';
 
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Import your architecture layers
 import 'views/onboarding_view.dart';
 import 'views/login_view.dart';
+import 'views/signup_view.dart';
+
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/admin_viewmodel.dart';
 import 'views/home_view.dart';
+import 'views/admin_dashboard_view.dart';
+
+
 
 
 void main() async {
@@ -55,8 +61,11 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const OnboardingView(),
         '/login': (context) => const LoginView(),
+        '/signup': (context) => const SignupView(),
         '/home': (context) => const HomeView(),
+        '/admin': (context) => const AdminDashboardView(),
       },
+
 
     );
   }

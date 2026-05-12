@@ -11,6 +11,9 @@ class SupabaseService {
     );
   }
 
+  /// Returns the currently authenticated user (if any).
+  User? getCurrentUser() => _client.auth.currentUser;
+
   // Get current user role from your 'profiles' table
   Future<String> getUserRole(String userId) async {
     final data = await _client
@@ -22,9 +25,25 @@ class SupabaseService {
     return data['role'] as String;
   }
 
+
+  // Sign up
+  Future<AuthResponse> signUp({
+    required String email,
+    required String password,
+    Map<String, dynamic>? data,
+  }) async {
+    return _client.auth.signUp(
+      email: email,
+      password: password,
+      data: data,
+    );
+  }
+
+
   // Sign out
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
 }
+
 
