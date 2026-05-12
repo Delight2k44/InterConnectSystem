@@ -20,7 +20,25 @@ class AuthViewModel extends ChangeNotifier {
     return user?.id;
   }
 
-  Future<String> getUserRole(String userId) => _supabaseService.getUserRole(userId);
+  Future<String> getUserRole() async {
+    try {
+      final userId = getCurrentUserId();
+      // If no user is logged in, default role so the UI doesn't crash.
+      if (userId == null) return 'student';
+
+      return await _supabaseService.getUserRole(userId);
+    } catch (e) {
+      debugPrint("Critical Error in getUserRole: $e");
+      return 'student'; // Fallback so the app doesn't freeze/crash
+    }
+  }
+
+  // Backwards-compatible overload (kept for other screens, if any)
+  Future<String> getUserRoleById(String userId) => _supabaseService.getUserRole(userId);
+
+
+
+
 
   // Requirement 1.1: Authentication (Login - Read Operation)
   Future<bool> signIn(String email, String password) async {
@@ -29,16 +47,16 @@ class AuthViewModel extends ChangeNotifier {
 
     try {
       final response = await _supabaseService.signIn(email, password);
-      _setLoading(false);
       return response.user != null;
     } on AuthException catch (e) {
       _errorMessage = e.message;
-      _setLoading(false);
       return false;
     } catch (_) {
       _errorMessage = 'An unexpected error occurred.';
-      _setLoading(false);
       return false;
+    } finally {
+      // Must run so the UI doesn't stay stuck in loading state.
+      _setLoading(false);
     }
   }
 
@@ -53,16 +71,15 @@ class AuthViewModel extends ChangeNotifier {
         password: password,
         data: {'full_name': name},
       );
-      _setLoading(false);
       return true;
     } on AuthException catch (e) {
       _errorMessage = e.message;
-      _setLoading(false);
       return false;
     } catch (_) {
       _errorMessage = 'An error occurred';
-      _setLoading(false);
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 

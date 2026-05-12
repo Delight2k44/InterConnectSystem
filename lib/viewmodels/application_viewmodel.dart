@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -48,21 +47,26 @@ class ApplicationViewModel extends ChangeNotifier {
   String? validateApplication({
     required String year,
     required List<String> selectedModules,
-    File? file,
+    PlatformFile? file,
   }) {
     if (year.isEmpty) return 'Please select a year of study';
     if (selectedModules.isEmpty) return 'Please select at least one module';
     if (selectedModules.length > 6) return 'Maximum 6 modules allowed';
 
     if (file != null) {
-      final ext = file.path.split('.').last.toLowerCase();
+      final ext = file.name.split('.').last.toLowerCase();
       final validExts = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
       if (!validExts.contains(ext)) {
         return 'Invalid file format. Use PDF, DOC, or image';
       }
 
-      final size = file.lengthSync();
+      final size = file.size;
       if (size > 10 * 1024 * 1024) return 'File too large. Maximum 10MB allowed';
+
+      // On web, bytes are required for upload.
+      if (file.bytes == null) {
+        return 'File bytes missing (web upload requires bytes). Please re-select the file.';
+      }
     }
 
     return null;
@@ -75,7 +79,7 @@ class ApplicationViewModel extends ChangeNotifier {
   Future<bool> submitApplication({
     required String year,
     required List<String> selectedModules,
-    File? file,
+    PlatformFile? file,
   }) async {
     // Clear previous state
     clearMessages();
@@ -107,21 +111,30 @@ class ApplicationViewModel extends ChangeNotifier {
 
       // Requirement 3 & 118: Upload supporting documentation to Supabase Storage
       if (file != null) {
-        final ext = file.path.split('.').last.toLowerCase();
+        final ext = file.name.split('.').last.toLowerCase();
         fileName = '${user.id}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
         // Supabase doesn't support stream upload progress yet.
         _setUploadProgress(0.3);
 
-        await _supabase.storage.from('documents').upload(
-              fileName,
-              file,
-              fileOptions: const FileOptions(upsert: true),
-            );
+        final bytes = file.bytes;
+        if (bytes == null) {
+          _setError('File bytes missing. Please re-select the file.');
+          _setSubmitting(false);
+          return false;
+        }
+
+        // Use uploadBinary for web support (file.path can be null)
+        await _supabase.storage.from('docs').uploadBinary(
+          fileName,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
 
         _setUploadProgress(0.8);
 
-        fileUrl = _supabase.storage.from('documents').getPublicUrl(fileName);
+        fileUrl = _supabase.storage.from('docs').getPublicUrl(fileName);
 
         _setUploadProgress(1.0);
       }
@@ -308,7 +321,7 @@ class ApplicationViewModel extends ChangeNotifier {
       if (docPath != null && docPath.isNotEmpty) {
         try {
           final fileName = Uri.parse(docPath).pathSegments.last;
-          await _supabase.storage.from('documents').remove([fileName]);
+await _supabase.storage.from('docs').remove([fileName]);
         } catch (e) {
           debugPrint("Failed to delete document: $e");
           // Continue with deletion even if file removal fails
@@ -355,7 +368,7 @@ class ApplicationViewModel extends ChangeNotifier {
   /// Delete uploaded document from storage.
   Future<bool> deleteDocument(String fileName) async {
     try {
-      await _supabase.storage.from('documents').remove([fileName]);
+await _supabase.storage.from('docs').remove([fileName]);
       return true;
     } catch (e) {
       debugPrint('Delete Error: $e');
@@ -367,7 +380,7 @@ class ApplicationViewModel extends ChangeNotifier {
   String? getDocumentUrl(String? fileName) {
     if (fileName == null || fileName.isEmpty) return null;
     try {
-      return _supabase.storage.from('documents').getPublicUrl(fileName);
+return _supabase.storage.from('docs').getPublicUrl(fileName);
     } catch (e) {
       debugPrint('URL Error: $e');
       return null;

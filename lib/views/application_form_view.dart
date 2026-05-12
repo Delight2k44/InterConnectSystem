@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/application_viewmodel.dart';
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 
 class ApplicationFormView extends StatefulWidget {
@@ -16,7 +16,7 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
   String? _selectedYear;
   final List<String> _availableModules = ['TPG316C', 'ITP216C', 'ISS316C', 'NWS216C'];
   final List<String> _selectedModules = [];
-  File? _selectedFile;
+  PlatformFile? _selectedFile;
   String? _fileName;
 
   void _toggleModule(String module) {
@@ -42,18 +42,18 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
         allowMultiple: false,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final size = await file.length();
+      if (result != null) {
+        final platformFile = result.files.single;
 
-        if (size > 10 * 1024 * 1024) {
+        final bytesLength = platformFile.bytes?.length;
+        if (bytesLength != null && bytesLength > 10 * 1024 * 1024) {
           _showSnackBar("File too large. Maximum 10MB allowed", isError: true);
           return;
         }
 
         setState(() {
-          _selectedFile = file;
-          _fileName = result.files.single.name;
+          _selectedFile = platformFile;
+          _fileName = platformFile.name;
         });
       }
     } catch (e) {
@@ -96,6 +96,31 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
     );
   }
 
+  // ============================================
+  // ENHANCED SUCCESS DIALOG
+  // ============================================
+  void _showEnhancedSuccessDialog(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: animation, curve: Curves.elasticOut),
+          child: FadeTransition(
+            opacity: animation,
+            child: const _SuccessDialogContent(),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -114,8 +139,7 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
     );
 
     if (success && mounted) {
-      _showSnackBar("Application submitted successfully!");
-      Navigator.pop(context);
+      _showEnhancedSuccessDialog(context);
     } else if (mounted && viewModel.errorMessage != null) {
       _showSnackBar(viewModel.errorMessage!, isError: true);
     }
@@ -145,7 +169,6 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // Academic Information Section
             _buildSectionHeader(
               icon: Icons.school_outlined,
               title: "Academic Information",
@@ -161,7 +184,7 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: DropdownButtonFormField<String>(
-                  value: _selectedYear,
+                  initialValue: _selectedYear,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: "Current Year of Study",
@@ -174,12 +197,12 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                   icon: const Icon(Icons.keyboard_arrow_down),
-                  items: ['1st Year', '2nd Year', '3rd Year'].map((y) =>
-                      DropdownMenuItem(
-                        value: y,
-                        child: Text(y, style: const TextStyle(fontSize: 16)),
-                      )
-                  ).toList(),
+                  items: ['1st Year', '2nd Year', '3rd Year']
+                      .map((y) => DropdownMenuItem(
+                            value: y,
+                            child: Text(y, style: const TextStyle(fontSize: 16)),
+                          ))
+                      .toList(),
                   onChanged: (val) => setState(() => _selectedYear = val),
                   validator: (val) => val == null ? "Please select your year of study" : null,
                 ),
@@ -187,7 +210,6 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
             ),
             const SizedBox(height: 32),
 
-            // Module Selection Section
             _buildSectionHeader(
               icon: Icons.book_outlined,
               title: "Select Modules",
@@ -257,7 +279,6 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
               ),
             ),
 
-            // Validation hint
             if (_selectedModules.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 12, left: 4),
@@ -292,9 +313,9 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
                   ],
                 ),
               ),
+
             const SizedBox(height: 32),
 
-            // Document Upload Section
             _buildSectionHeader(
               icon: Icons.upload_file_outlined,
               title: "Supporting Documents",
@@ -305,7 +326,6 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
             _buildFileUploadCard(colorScheme, theme),
             const SizedBox(height: 40),
 
-            // Submit Button
             if (viewModel.isSubmitting) ...[
               LinearProgressIndicator(
                 value: viewModel.uploadProgress > 0 ? viewModel.uploadProgress : null,
@@ -317,13 +337,12 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
                 viewModel.uploadProgress > 0
                     ? "Uploading... ${(viewModel.uploadProgress * 100).toInt()}%"
                     : "Submitting application...",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
             ],
+
             SizedBox(
               height: 52,
               child: ElevatedButton(
@@ -450,9 +469,7 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
                     const SizedBox(height: 4),
                     Text(
                       "Ready to upload",
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.primary,
-                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.primary),
                     ),
                   ],
                 ),
@@ -510,14 +527,212 @@ class _ApplicationFormViewState extends State<ApplicationFormView> {
               const SizedBox(height: 4),
               Text(
                 "PDF, DOC, JPG up to 10MB",
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessDialogContent extends StatelessWidget {
+  const _SuccessDialogContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 400),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.2),
+              blurRadius: 40,
+              spreadRadius: 0,
+              offset: const Offset(0, 16),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              spreadRadius: -5,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTopDecoration(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 32),
+                    _buildAnimatedIcon(),
+                    const SizedBox(height: 28),
+                    _buildTitle(theme),
+                    const SizedBox(height: 12),
+                    _buildSubtitle(theme),
+                    const SizedBox(height: 32),
+                    _buildPrimaryButton(context, colorScheme),
+                    const SizedBox(height: 12),
+                    _buildSecondaryButton(context),
+                  ],
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTopDecoration() {
+    return Container(
+      height: 8,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.green.shade400,
+            Colors.green.shade600,
+          ],
+        ),
+      ),
+    ).animate().scaleX(
+
+          duration: 600.ms,
+          curve: Curves.easeOutExpo,
+          alignment: Alignment.centerLeft,
+        );
+  }
+
+  Widget _buildAnimatedIcon() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.green.shade200,
+          width: 2,
+        ),
+      ),
+      child: Icon(
+        Icons.check_circle_rounded,
+        color: Colors.green.shade600,
+        size: 72,
+      ),
+    )
+        .animate()
+        .scale(duration: 500.ms, curve: Curves.elasticOut)
+        .then()
+        .shimmer(duration: 1200.ms, color: Colors.white.withOpacity(0.3));
+  }
+
+  Widget _buildTitle(ThemeData theme) {
+    return Text(
+      "Application Submitted!",
+      textAlign: TextAlign.center,
+      style: theme.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w800,
+        color: theme.colorScheme.onSurface,
+        letterSpacing: -0.5,
+        height: 1.2,
+      ),
+    )
+        .animate()
+        .fadeIn(delay: 200.ms)
+        .slideY(begin: 0.3, end: 0, curve: Curves.easeOutQuad);
+  }
+
+  Widget _buildSubtitle(ThemeData theme) {
+    return Text(
+      "Your documents have been uploaded successfully. Track your application status anytime from your dashboard.",
+      textAlign: TextAlign.center,
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        height: 1.5,
+      ),
+    )
+        .animate()
+        .fadeIn(delay: 300.ms)
+        .slideY(begin: 0.2, end: 0, curve: Curves.easeOutQuad);
+  }
+
+  Widget _buildPrimaryButton(BuildContext context, ColorScheme colorScheme) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          // Haptic feedback is optional; keep dialog logic working even if not supported.
+          // HapticFeedback.mediumImpact();
+          Navigator.of(context).pop();
+          Navigator.pushReplacementNamed(context, '/home');
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green.shade600,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          elevation: 0,
+          shadowColor: Colors.green.withOpacity(0.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) {
+              return Colors.white.withOpacity(0.15);
+            }
+            return null;
+          }),
+        ),
+        icon: const Icon(Icons.home_rounded, size: 20),
+        label: const Text(
+          "Back to Home",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+        ),
+      )
+          .animate()
+          .fadeIn(delay: 400.ms)
+          .slideY(begin: 0.2, end: 0, curve: Curves.easeOutQuad),
+    );
+  }
+
+  Widget _buildSecondaryButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton(
+        onPressed: () {
+          // HapticFeedback.lightImpact();
+          Navigator.of(context).pop();
+          Navigator.pushNamed(context, '/dashboard');
+        },
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Text(
+          "View Dashboard",
+          style: TextStyle(
+            color: Colors.green.shade700,
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+      )
+          .animate()
+          .fadeIn(delay: 500.ms),
     );
   }
 }

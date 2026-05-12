@@ -11,8 +11,11 @@ import 'views/onboarding_view.dart';
 import 'views/login_view.dart';
 import 'views/signup_view.dart';
 
+import 'views/application_form_view.dart';
+
 import 'viewmodels/home_viewmodel.dart';
 import 'viewmodels/admin_viewmodel.dart';
+import 'viewmodels/application_viewmodel.dart';
 import 'views/home_view.dart';
 import 'views/admin_dashboard_view.dart';
 
@@ -24,7 +27,7 @@ void main() async {
 
   // Supabase Initialization [cite: 112, 115]
   await Supabase.initialize(
-    url: 'https://jqovxwkxuahggrzvvhz.supabase.co',
+    url: 'https://jqovxwxkuxahggrzvvhz.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impxb3Z4d3hrdXhhaGdncnp2dmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NzQ1OTAsImV4cCI6MjA5MzI1MDU5MH0.VxNCDwx-BQL5rZO5VGuPzsiNHPQ6ycNLVOJ-rKe9OH0',
   );
 
@@ -36,6 +39,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
         ChangeNotifierProvider(create: (_) => HomeViewModel()),
         ChangeNotifierProvider(create: (_) => AdminViewModel()),
+
+        // FIX: ApplicationViewModel was missing, causing the red error.
+        ChangeNotifierProvider(create: (_) => ApplicationViewModel()),
       ],
       child: const MyApp(),
 
@@ -63,6 +69,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginView(),
         '/signup': (context) => const SignupView(),
         '/home': (context) => const HomeView(),
+        '/apply': (context) => const ApplicationFormView(),
         '/admin': (context) => const AdminDashboardView(),
       },
 
