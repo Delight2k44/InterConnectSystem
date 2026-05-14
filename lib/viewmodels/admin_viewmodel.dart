@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/application_model.dart';
+import '../models/student_application.dart';
 
 enum ApplicationFilter { all, pending, approved, rejected }
 
