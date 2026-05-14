@@ -512,7 +512,7 @@ class ApplicationDetailView extends StatelessWidget {
             ],
           ),
         ),
-        if (trailing != null) trailing,
+        ?trailing,
       ],
     );
   }

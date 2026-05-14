@@ -144,7 +144,8 @@ class ApplicationViewModel extends ChangeNotifier {
         yearOfStudy: year,
         modules: selectedModules,
         status: 'pending',
-        documentPath: fileUrl,
+      documentPath: fileUrl ?? '',
+
         createdAt: DateTime.now(),
       );
 

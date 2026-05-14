@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 
 class StudentApplication {
-  final String? id; // Null for new applications
+  final String? id;
   final String userId;
   final String yearOfStudy;
   final List<String> modules;
   final String status;
-  final String? documentPath; // URL to Supabase Storage
+  final String documentPath;
   final DateTime createdAt;
 
   const StudentApplication({
@@ -15,26 +15,29 @@ class StudentApplication {
     required this.yearOfStudy,
     required this.modules,
     required this.status,
-    this.documentPath,
+    required this.documentPath,
     required this.createdAt,
   });
+
 
   // ─── Computed Properties ───
 
   /// Whether this application is awaiting review
-  bool get isPending => status == 'pending';
+  bool get isPending => status.toLowerCase() == 'pending';
 
   /// Whether this application has been approved
-  bool get isApproved => status == 'approved';
+  bool get isApproved => status.toLowerCase() == 'approved';
 
   /// Whether this application has been rejected
-  bool get isRejected => status == 'rejected';
+  bool get isRejected => status.toLowerCase() == 'rejected';
+
 
   /// Whether this is a new unsaved application
   bool get isNew => id == null || id!.isEmpty;
 
   /// Whether a document has been uploaded
-  bool get hasDocument => documentPath != null && documentPath!.isNotEmpty;
+  bool get hasDocument => documentPath.isNotEmpty;
+
 
   /// Human-readable status label with capitalization
   String get statusLabel {
@@ -45,59 +48,32 @@ class StudentApplication {
   /// Total number of selected modules
   int get moduleCount => modules.length;
 
-  /// Formatted date string (e.g., "May 12, 2026")
-  String get formattedDate {
-    final month = _monthName(createdAt.month);
-    return '$month ${createdAt.day}, ${createdAt.year}';
+  String get timeAgo {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    return '${diff.inMinutes}m ago';
   }
 
-  /// Relative time string (e.g., "2h ago", "Yesterday")
-  String get timeAgo => _formatTimeAgo(createdAt);
+  String get formattedDate => "${createdAt.day}/${createdAt.month}/${createdAt.year}";
+
 
   // ─── Factory Constructors ───
 
-  /// Convert Supabase JSON map to model with null-safety
   factory StudentApplication.fromMap(Map<String, dynamic> map) {
-    // Helper to safely extract strings
-    String? safeString(dynamic value) {
-      if (value == null) return null;
-      final str = value.toString();
-      return str.isEmpty ? null : str;
-    }
-
-    // Helper to safely parse DateTime
-    DateTime safeDateTime(dynamic value, String fieldName) {
-      if (value == null) throw FormatException('Missing required field: $fieldName');
-      if (value is DateTime) return value;
-      try {
-        return DateTime.parse(value.toString());
-      } catch (e) {
-        throw FormatException('Invalid date format for $fieldName: $value');
-      }
-    }
-
-    // Helper to safely extract list of strings
-    List<String> safeStringList(dynamic value) {
-      if (value == null) return const [];
-      if (value is List) {
-        return value
-            .map((e) => e?.toString() ?? '')
-            .where((s) => s.isNotEmpty)
-            .toList();
-      }
-      throw FormatException('Invalid list format for modules: $value');
-    }
-
     return StudentApplication(
-      id: safeString(map['id']),
-      userId: safeString(map['user_id']) ?? '',
-      yearOfStudy: safeString(map['year_of_study']) ?? '',
-      modules: safeStringList(map['modules']),
-      status: safeString(map['status']) ?? 'pending',
-      documentPath: safeString(map['document_path']),
-      createdAt: safeDateTime(map['created_at'], 'created_at'),
+      id: map['id'],
+      // MATCH THESE TO YOUR DB COLUMNS EXACTLY:
+      userId: map['user_id'] ?? '',
+      yearOfStudy: map['year_of_study'] ?? '',
+      // 'modules' is a JSON array in your DB, so we cast it:
+      modules: List<String>.from(map['modules'] ?? []),
+      status: map['status'] ?? 'pending',
+      documentPath: map['document_path'] ?? '',
+      createdAt: map['created_at'] != null ? DateTime.parse(map['created_at']) : DateTime.now(),
     );
   }
+
 
   /// Create from Supabase with default fallback values (for partial data)
   factory StudentApplication.fromMapSafe(Map<String, dynamic> map) {
@@ -108,7 +84,7 @@ class StudentApplication {
       modules:
           (map['modules'] as List?)?.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList() ?? const [],
       status: map['status']?.toString() ?? 'pending',
-      documentPath: map['document_path']?.toString(),
+      documentPath: map['document_path']?.toString() ?? '',
       createdAt: map['created_at'] != null
           ? (map['created_at'] is DateTime
               ? map['created_at']
@@ -117,10 +93,9 @@ class StudentApplication {
     );
   }
 
+
   // ─── Serialization ───
 
-  /// Convert model back to Supabase-compatible map
-  /// Set [includeId] true when updating existing records
   Map<String, dynamic> toMap({bool includeId = false}) {
     final map = <String, dynamic>{
       'user_id': userId,
@@ -130,6 +105,7 @@ class StudentApplication {
       'document_path': documentPath,
       'created_at': createdAt.toIso8601String(),
     };
+
 
     if (includeId && id != null) {
       map['id'] = id;
@@ -153,7 +129,7 @@ class StudentApplication {
     String? yearOfStudy,
     List<String>? modules,
     String? status,
-    ValueGetter<String?>? documentPath,
+    String? documentPath,
     DateTime? createdAt,
   }) {
     return StudentApplication(
@@ -162,10 +138,11 @@ class StudentApplication {
       yearOfStudy: yearOfStudy ?? this.yearOfStudy,
       modules: modules ?? this.modules,
       status: status ?? this.status,
-      documentPath: documentPath != null ? documentPath() : this.documentPath,
+      documentPath: documentPath ?? this.documentPath,
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
 
   /// Create a copy with updated status
   StudentApplication withStatus(String newStatus) => copyWith(status: newStatus);
@@ -182,10 +159,11 @@ class StudentApplication {
   }
 
   /// Create a copy with document path
-  StudentApplication withDocument(String? path) => copyWith(documentPath: () => path);
+  StudentApplication withDocument(String path) => copyWith(documentPath: path);
 
   /// Create a copy with cleared document
-  StudentApplication clearDocument() => copyWith(documentPath: () => null);
+  StudentApplication clearDocument() => copyWith(documentPath: '');
+
 
   // ─── Equality & Debug ───
 

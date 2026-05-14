@@ -120,10 +120,13 @@ class AdminViewModel extends ChangeNotifier {
     _setLoading(true);
 
     try {
+      // Join profiles to show student's name instead of just a serial user_id
       final response = await _supabase
           .from('applications')
-          .select('*, profiles:user_id(full_name, email, student_number)')
+          .select('*, profiles:user_id (full_name)')
           .order('created_at', ascending: false);
+
+
 
       _allApplications = (response as List)
           .map((item) => StudentApplication.fromMap(item))
@@ -215,11 +218,31 @@ class AdminViewModel extends ChangeNotifier {
     }
   }
 
-  /// Convenience method to approve
-  Future<bool> approveApplication(String appId) =>
-      updateApplicationStatus(appId, 'approved');
+  Future<bool> approveApplication(String appId) async {
+    try {
+      final response = await _supabase.from('applications').update({
+        'status': 'approved',
+        'updated_at': DateTime.now().toIso8601String(),
+        'reviewed_by': _supabase.auth.currentUser!.id,
+      }).eq('id', appId);
+
+      // Refresh the list from the DB to prove it saved
+      await fetchAllApplications();
+      return true;
+    } catch (e) {
+      print("Update failed: $e"); // Check your debug console for the specific error
+      return false;
+    }
+  }
+
+
+
+
+
+
 
   /// Convenience method to reject
+
   Future<bool> rejectApplication(String appId) =>
       updateApplicationStatus(appId, 'rejected');
 
@@ -274,4 +297,3 @@ class AdminViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-

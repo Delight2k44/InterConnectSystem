@@ -1,8 +1,11 @@
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/application_model.dart';
 import '../viewmodels/admin_viewmodel.dart';
+
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({super.key});
@@ -65,7 +68,48 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       final viewModel = context.read<AdminViewModel>();
       final success = await viewModel.approveApplication(appId);
       if (success && mounted) {
-        _showStatusSnackBar('Application approved successfully');
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Success!",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "The application status has been updated to Approved.",
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                    child: const Text("Done"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
       } else if (mounted && viewModel.errorMessage != null) {
         _showStatusSnackBar(viewModel.errorMessage!, isError: true);
       }
@@ -438,11 +482,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     [
                       ElevatedButton.icon(
                         onPressed: () {
-                          // Launch PDF URL (implementation depends on how documentPath is stored)
+                          if (app.documentPath.isNotEmpty) {
+                            html.window.open(app.documentPath, '_blank');
+                          } else {
+                            _showStatusSnackBar(
+                              'No document found for this application',
+                              isError: true,
+                            );
+                          }
                         },
                         icon: const Icon(Icons.open_in_new),
                         label: const Text('View Supporting Document'),
                         style: ElevatedButton.styleFrom(
+
                           backgroundColor: colorScheme.primary,
                           foregroundColor: colorScheme.onPrimary,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -702,7 +754,8 @@ class _ApplicationCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Student ID: ${application.userId.substring(0, application.userId.length >= 8 ? 8 : application.userId.length)}...',
+                          'Student ID: ${application.userId}',
+
                           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
